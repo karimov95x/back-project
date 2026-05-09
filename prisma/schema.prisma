@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  CLINIC
+}
+
+enum StudyStatus {
+  NEW
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum StudyFileType {
+  DICOM
+  ATTACHMENT
+}
+
+model User {
+  id                 String        @id @default(uuid())
+  email              String        @unique
+  fullName           String
+  passwordHash       String
+  role               Role
+  clinicStudies      Study[]       @relation("ClinicStudies")
+  assignedStudies    Study[]       @relation("AssignedDoctorStudies")
+  viewedStudies      StudyViewer[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([role])
+  @@index([email])
+}
+
+model Study {
+  id               String         @id @default(uuid())
+  patientFullName  String
+  patientBirthDate DateTime
+  anamnesis        String
+  status           StudyStatus    @default(NEW)
+  isUrgent         Boolean        @default(false)
+  clinicId         String
+  assignedDoctorId String?
+  rejectionReason  String?
+  reportFileUrl    String?
+  clinic           User           @relation("ClinicStudies", fields: [clinicId], references: [id], onDelete: Cascade)
+  assignedDoctor   User?          @relation("AssignedDoctorStudies", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
+  files            StudyFile[]
+  viewers          StudyViewer[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([status])
+  @@index([clinicId])
+  @@index([assignedDoctorId])
+  @@index([isUrgent, status])
+}
+
+model StudyFile {
+  id        String        @id @default(uuid())
+  studyId   String
+  fileUrl   String
+  fileType  StudyFileType
+  study     Study         @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+
+  @@index([studyId])
+}
+
+model StudyViewer {
+  studyId   String
+  doctorId  String
+  viewedAt  DateTime @default(now())
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  doctor    User     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@id([studyId, doctorId])
+  @@index([doctorId])
+}
